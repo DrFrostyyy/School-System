@@ -24,6 +24,7 @@ model User {
   receivedMessages Message[] @relation("ReceivedMessages")
   createdAnnouncements Announcement[]
   uploadedDocuments Document[]
+  announcementRecipients AnnouncementRecipient[]
 
   @@map("users")
 }
