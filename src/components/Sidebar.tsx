@@ -1,24 +1,32 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard,
-  Users,
-  BookOpen,
-  GraduationCap,
-  ClipboardCheck,
   UserCheck,
+  Megaphone,
+  FileText,
+  MessageSquare,
+  LogOut,
 } from 'lucide-react'
 
 const menuItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/students', icon: Users, label: 'Students' },
-  { path: '/courses', icon: BookOpen, label: 'Courses' },
-  { path: '/grades', icon: GraduationCap, label: 'Grades' },
-  { path: '/attendance', icon: ClipboardCheck, label: 'Attendance' },
   { path: '/teachers', icon: UserCheck, label: 'Teachers' },
+  { path: '/announcements', icon: Megaphone, label: 'Announcements' },
+  { path: '/documents', icon: FileText, label: 'Documents' },
+  { path: '/messages', icon: MessageSquare, label: 'Messages' },
 ]
 
 export default function Sidebar() {
+  const { logout, user } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
+
   return (
     <motion.aside
       initial={{ x: -20, opacity: 0 }}
@@ -61,8 +69,21 @@ export default function Sidebar() {
         ))}
       </nav>
       
-      <div className="p-4 border-t border-gold-500/20">
-        <div className="text-xs text-charcoal-500 text-center">
+      <div className="p-4 border-t border-gold-500/20 space-y-2">
+        <div className="px-4 py-2 text-xs text-charcoal-400">
+          <div className="font-medium text-charcoal-300">{user?.email}</div>
+          <div className="text-charcoal-500">{user?.role}</div>
+        </div>
+        <motion.button
+          onClick={handleLogout}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-charcoal-300 hover:bg-charcoal-800 hover:text-gold-400 transition-smooth"
+        >
+          <LogOut className="w-5 h-5" />
+          <span className="font-medium">Logout</span>
+        </motion.button>
+        <div className="text-xs text-charcoal-500 text-center pt-2">
           © 2024 School Information System
         </div>
       </div>

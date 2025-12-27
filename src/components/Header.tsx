@@ -1,7 +1,42 @@
 import { motion } from 'framer-motion'
-import { Bell, Search, User } from 'lucide-react'
+import { Bell, Search } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { useEffect, useState } from 'react'
+import { apiClient } from '../utils/api'
 
 export default function Header() {
+  const { user } = useAuth()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const data = await apiClient.get<{ count: number }>('/messages/unread-count')
+        setUnreadCount(data.count)
+      } catch (error) {
+        console.error('Failed to fetch unread count:', error)
+      }
+    }
+
+    if (user) {
+      fetchUnreadCount()
+      const interval = setInterval(fetchUnreadCount, 30000) // Refresh every 30 seconds
+      return () => clearInterval(interval)
+    }
+  }, [user])
+
+  const getInitials = () => {
+    if (user?.teacherProfile?.name) {
+      return user.teacherProfile.name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    }
+    return user?.email.charAt(0).toUpperCase() || 'U'
+  }
+
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
@@ -26,21 +61,28 @@ export default function Header() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="relative p-2 text-charcoal-600 hover:text-gold-600 transition-smooth rounded-lg hover:bg-gold-50"
+            onClick={() => window.location.href = '/messages'}
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-gold-500 rounded-full"></span>
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-5 h-5 bg-gold-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </motion.button>
           
           <motion.div
             whileHover={{ scale: 1.05 }}
             className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-charcoal-50 transition-smooth cursor-pointer"
           >
-            <div className="w-8 h-8 bg-gold-500 rounded-full flex items-center justify-center text-white font-semibold">
-              A
+            <div className="w-8 h-8 bg-gold-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+              {getInitials()}
             </div>
             <div className="hidden md:block">
-              <p className="text-sm font-medium text-charcoal-900">Admin User</p>
-              <p className="text-xs text-charcoal-500">Administrator</p>
+              <p className="text-sm font-medium text-charcoal-900">
+                {user?.teacherProfile?.name || user?.email}
+              </p>
+              <p className="text-xs text-charcoal-500 capitalize">{user?.role}</p>
             </div>
           </motion.div>
         </div>
