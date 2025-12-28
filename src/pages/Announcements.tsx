@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, FileText, Calendar, User, Download, ExternalLink } from 'lucide-react'
+import { Plus, FileText, Calendar, User, Download, ExternalLink, Edit, Trash2, Pin, PinOff } from 'lucide-react'
 import { apiClient } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -9,8 +9,11 @@ interface Announcement {
   title: string
   body: string
   attachment?: string
+  link?: string
   visibility: string
+  pinned?: boolean
   createdAt: string
+  createdBy: string
   creator: {
     id: string
     email: string
@@ -33,6 +36,7 @@ export default function Announcements() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null)
   const [formData, setFormData] = useState({
     title: '',
     body: '',
@@ -76,13 +80,54 @@ export default function Announcements() {
         formDataToSend.append('attachment', formData.attachment)
       }
 
-      await apiClient.uploadFile('/announcements', formDataToSend)
+      if (editingAnnouncement) {
+        await apiClient.uploadFile(`/announcements/${editingAnnouncement.id}`, formDataToSend, 'PUT')
+      } else {
+        await apiClient.uploadFile('/announcements', formDataToSend)
+      }
+      
       setShowModal(false)
+      setEditingAnnouncement(null)
       setFormData({ title: '', body: '', visibility: 'ALL', department: '', attachment: null, link: '' })
       fetchAnnouncements()
     } catch (error: any) {
-      console.error('Failed to create announcement:', error)
-      alert(error.message || 'Failed to create announcement')
+      console.error('Failed to save announcement:', error)
+      alert(error.message || 'Failed to save announcement')
+    }
+  }
+
+  const handleEdit = (announcement: Announcement) => {
+    setEditingAnnouncement(announcement)
+    setFormData({
+      title: announcement.title,
+      body: announcement.body,
+      visibility: announcement.visibility,
+      department: announcement.visibility === 'DEPARTMENT' ? announcement.visibility : '',
+      attachment: null,
+      link: announcement.link ?? ''
+    })
+    setShowModal(true)
+  }
+
+  const handleDelete = async (announcementId: string) => {
+    if (!confirm('Are you sure you want to delete this announcement?')) return
+
+    try {
+      await apiClient.delete(`/announcements/${announcementId}`)
+      fetchAnnouncements()
+    } catch (error: any) {
+      console.error('Failed to delete announcement:', error)
+      alert(error.message || 'Failed to delete announcement')
+    }
+  }
+
+  const handlePin = async (announcementId: string, pinned: boolean) => {
+    try {
+      await apiClient.patch(`/announcements/${announcementId}/pin`, { pinned })
+      fetchAnnouncements()
+    } catch (error: any) {
+      console.error('Failed to pin/unpin announcement:', error)
+      alert(error.message || 'Failed to update pin status')
     }
   }
 
@@ -113,7 +158,11 @@ export default function Announcements() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setEditingAnnouncement(null)
+              setFormData({ title: '', body: '', visibility: 'ALL', department: '', attachment: null, link: '' })
+              setShowModal(true)
+            }}
             className="flex items-center gap-2 px-6 py-3 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-smooth shadow-sm"
           >
             <Plus className="w-5 h-5" />
@@ -129,13 +178,22 @@ export default function Announcements() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-white border border-charcoal-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-smooth"
+            className={`bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-smooth ${
+              announcement.pinned 
+                ? 'border-gold-500 border-2 bg-gold-50/30' 
+                : 'border-charcoal-200'
+            }`}
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
-                <h3 className="text-xl font-serif font-bold text-charcoal-900 mb-2">
-                  {announcement.title}
-                </h3>
+                <div className="flex items-center gap-2 mb-2">
+                  {announcement.pinned && (
+                    <Pin className="w-5 h-5 text-gold-500 fill-gold-500" />
+                  )}
+                  <h3 className="text-xl font-serif font-bold text-charcoal-900">
+                    {announcement.title}
+                  </h3>
+                </div>
                 <div className="flex items-center gap-4 text-sm text-charcoal-600 mb-3">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4" />
@@ -150,16 +208,59 @@ export default function Announcements() {
                   </span>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                {(user?.role === 'ADMIN' || announcement.createdBy === user?.id) && (
+                  <>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => handleEdit(announcement)}
+                      className="p-2 text-charcoal-400 hover:text-gold-600 transition-smooth"
+                      title="Edit"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => handleDelete(announcement.id)}
+                      className="p-2 text-charcoal-400 hover:text-red-600 transition-smooth"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </motion.button>
+                  </>
+                )}
+                {user?.role === 'ADMIN' && (
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => handlePin(announcement.id, !announcement.pinned)}
+                    className={`p-2 transition-smooth ${
+                      announcement.pinned
+                        ? 'text-gold-600 hover:text-gold-700'
+                        : 'text-charcoal-400 hover:text-gold-600'
+                    }`}
+                    title={announcement.pinned ? 'Unpin' : 'Pin'}
+                  >
+                    {announcement.pinned ? (
+                      <Pin className="w-4 h-4 fill-current" />
+                    ) : (
+                      <PinOff className="w-4 h-4" />
+                    )}
+                  </motion.button>
+                )}
+              </div>
             </div>
             
             <div className="prose max-w-none mb-4">
               <p className="text-charcoal-700 whitespace-pre-wrap">{announcement.body}</p>
             </div>
 
-            {announcement.attachment && (
+            {announcement.attachment && getAttachmentUrl(announcement.attachment) && (
               <div className="mt-4 pt-4 border-t border-charcoal-200">
                 <a
-                  href={getAttachmentUrl(announcement.attachment)}
+                  href={getAttachmentUrl(announcement.attachment) || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-gold-600 hover:text-gold-700 transition-smooth"
@@ -202,7 +303,7 @@ export default function Announcements() {
             className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
           >
             <h2 className="text-2xl font-serif font-bold text-charcoal-900 mb-4">
-              Create Announcement
+              {editingAnnouncement ? 'Edit Announcement' : 'Create Announcement'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -299,11 +400,15 @@ export default function Announcements() {
                   type="submit"
                   className="flex-1 px-4 py-2 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-smooth"
                 >
-                  Create
+                  {editingAnnouncement ? 'Update' : 'Create'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false)
+                    setEditingAnnouncement(null)
+                    setFormData({ title: '', body: '', visibility: 'ALL', department: '', attachment: null, link: '' })
+                  }}
                   className="flex-1 px-4 py-2 border border-charcoal-200 rounded-lg hover:bg-charcoal-50 transition-smooth"
                 >
                   Cancel

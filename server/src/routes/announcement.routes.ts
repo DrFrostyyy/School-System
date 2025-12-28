@@ -48,7 +48,10 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
             }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: [
+          { pinned: 'desc' },
+          { createdAt: 'desc' }
+        ]
       })
     } else {
       // Teachers see announcements assigned to them or ALL visibility
@@ -89,7 +92,10 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
             }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: [
+          { pinned: 'desc' },
+          { createdAt: 'desc' }
+        ]
       })
     }
 
@@ -250,8 +256,8 @@ router.post('/', authenticate, announcementUpload.single('attachment'), async (r
   }
 })
 
-// Update announcement (Admin only)
-router.put('/:id', authenticate, requireRole(['ADMIN']), announcementUpload.single('attachment'), async (req: AuthRequest, res) => {
+// Update announcement (Admin can edit any, Teachers can edit their own)
+router.put('/:id', authenticate, announcementUpload.single('attachment'), async (req: AuthRequest, res) => {
   try {
     const existingAnnouncement = await prisma.announcement.findUnique({
       where: { id: req.params.id }
@@ -259,6 +265,11 @@ router.put('/:id', authenticate, requireRole(['ADMIN']), announcementUpload.sing
 
     if (!existingAnnouncement) {
       return res.status(404).json({ error: 'Announcement not found' })
+    }
+
+    // Check permissions: Admin can edit any, Teachers can only edit their own
+    if (req.userRole !== 'ADMIN' && existingAnnouncement.createdBy !== req.userId!) {
+      return res.status(403).json({ error: 'You can only edit your own announcements' })
     }
 
     const validatedData = announcementSchema.partial().parse({
@@ -272,6 +283,14 @@ router.put('/:id', authenticate, requireRole(['ADMIN']), announcementUpload.sing
     if (validatedData.title) updateData.title = validatedData.title
     if (validatedData.body) updateData.body = sanitizeHtml(validatedData.body)
     if (validatedData.visibility) updateData.visibility = validatedData.visibility
+
+    if (req.body.link !== undefined) {
+      const link = req.body.link || null
+      if (link && !isValidUrl(link)) {
+        return res.status(400).json({ error: 'Invalid URL format' })
+      }
+      updateData.link = link
+    }
 
     if (req.file) {
       // Delete old attachment if exists
@@ -308,8 +327,8 @@ router.put('/:id', authenticate, requireRole(['ADMIN']), announcementUpload.sing
   }
 })
 
-// Delete announcement (Admin only)
-router.delete('/:id', authenticate, requireRole(['ADMIN']), async (req: AuthRequest, res) => {
+// Delete announcement (Admin can delete any, Teachers can delete their own)
+router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
   try {
     const announcement = await prisma.announcement.findUnique({
       where: { id: req.params.id }
@@ -317,6 +336,11 @@ router.delete('/:id', authenticate, requireRole(['ADMIN']), async (req: AuthRequ
 
     if (!announcement) {
       return res.status(404).json({ error: 'Announcement not found' })
+    }
+
+    // Check permissions: Admin can delete any, Teachers can only delete their own
+    if (req.userRole !== 'ADMIN' && announcement.createdBy !== req.userId!) {
+      return res.status(403).json({ error: 'You can only delete your own announcements' })
     }
 
     // Delete attachment if exists
@@ -334,6 +358,39 @@ router.delete('/:id', authenticate, requireRole(['ADMIN']), async (req: AuthRequ
       return res.status(404).json({ error: 'Announcement not found' })
     }
     console.error('Delete announcement error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Pin/Unpin announcement (Admin only)
+router.patch('/:id/pin', authenticate, requireRole(['ADMIN']), async (req: AuthRequest, res) => {
+  try {
+    const { pinned } = req.body
+
+    if (typeof pinned !== 'boolean') {
+      return res.status(400).json({ error: 'pinned must be a boolean value' })
+    }
+
+    const announcement = await prisma.announcement.update({
+      where: { id: req.params.id },
+      data: { pinned },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            email: true,
+            teacherProfile: true
+          }
+        }
+      }
+    })
+
+    res.json(announcement)
+  } catch (error: any) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Announcement not found' })
+    }
+    console.error('Pin announcement error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

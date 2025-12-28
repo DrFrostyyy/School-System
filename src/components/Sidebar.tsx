@@ -32,7 +32,7 @@ export default function Sidebar() {
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="w-64 bg-charcoal-900 text-white border-r border-gold-500/20 shadow-lg flex flex-col h-screen"
+      className="w-64 bg-charcoal-900 text-white border-r border-gold-500/20 shadow-lg flex flex-col h-screen fixed left-0 top-0 z-10"
     >
       <div className="p-6 border-b border-gold-500/20">
         <h1 className="text-2xl font-serif font-bold text-gold-500">

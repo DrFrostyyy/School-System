@@ -52,6 +52,7 @@ model Announcement {
   attachment  String?  // File path
   link        String?  // URL/Link
   visibility  String   @default("ALL") // "ALL" or specific department
+  pinned      Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   String
