@@ -8,7 +8,7 @@
   }
   
   body {
-    @apply bg-white text-charcoal-900 font-sans antialiased;
+    @apply bg-white dark:bg-charcoal-900 text-charcoal-900 dark:text-charcoal-100 font-sans antialiased;
   }
 }
 
@@ -112,6 +112,29 @@ select:disabled[class*="px-"] {
   border-top-left-radius: 0.5rem;
   border-top-right-radius: 0.5rem;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.dark .ql-toolbar {
+  border-bottom-color: #374151;
+  background-color: #1f2937;
+  color: #f3f4f6;
+}
+
+.dark .ql-container {
+  background-color: #111827;
+  color: #f3f4f6;
+}
+
+.dark .ql-editor {
+  color: #f3f4f6;
+}
+
+.dark .ql-stroke {
+  stroke: #f3f4f6;
+}
+
+.dark .ql-fill {
+  fill: #f3f4f6;
 }
 
 .ql-container {

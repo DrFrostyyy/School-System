@@ -100,10 +100,10 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h1 className="text-3xl font-serif font-bold text-charcoal-900 mb-2">
+        <h1 className="text-3xl font-serif font-bold text-charcoal-900 dark:text-charcoal-100 mb-2">
           Dashboard
         </h1>
-        <p className="text-charcoal-600">
+        <p className="text-charcoal-600 dark:text-charcoal-400">
           Welcome back{user?.teacherProfile?.name ? `, ${user.teacherProfile.name}` : ''}! Here's an overview.
         </p>
       </motion.div>
@@ -116,15 +116,15 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
             whileHover={{ y: -5 }}
-            className="bg-white border border-charcoal-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-smooth"
+            className="bg-white dark:bg-charcoal-800 border border-charcoal-200 dark:border-charcoal-700 rounded-lg p-6 shadow-sm hover:shadow-md transition-smooth"
           >
             <div className="flex items-center justify-between mb-4">
               <div className={`${stat.color} p-3 rounded-lg`}>
                 <stat.icon className="w-6 h-6 text-white" />
               </div>
             </div>
-            <h3 className="text-2xl font-bold text-charcoal-900 mb-1">{stat.value}</h3>
-            <p className="text-sm text-charcoal-600">{stat.label}</p>
+            <h3 className="text-2xl font-bold text-charcoal-900 dark:text-charcoal-100 mb-1">{stat.value}</h3>
+            <p className="text-sm text-charcoal-600 dark:text-charcoal-400">{stat.label}</p>
           </motion.div>
         ))}
       </div>
@@ -136,13 +136,13 @@ export default function Dashboard() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-white border border-charcoal-200 rounded-lg p-6 shadow-sm"
+              className="bg-white dark:bg-charcoal-800 border border-charcoal-200 dark:border-charcoal-700 rounded-lg p-6 shadow-sm"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif font-bold text-charcoal-900">
+                <h2 className="text-xl font-serif font-bold text-charcoal-900 dark:text-charcoal-100">
                   Latest Announcements
                 </h2>
-                <Link to="/announcements" className="text-sm text-gold-600 hover:text-gold-700">
+                <Link to="/announcements" className="text-sm text-gold-600 dark:text-gold-500 hover:text-gold-700 dark:hover:text-gold-400">
                   View all
                 </Link>
               </div>
@@ -154,12 +154,12 @@ export default function Dashboard() {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
-                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-charcoal-50 transition-smooth"
+                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-charcoal-50 dark:hover:bg-charcoal-700 transition-smooth"
                     >
                       <div className="w-2 h-2 bg-gold-500 rounded-full"></div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-charcoal-900">{announcement.title}</p>
-                        <p className="text-xs text-charcoal-600">
+                        <p className="text-sm font-medium text-charcoal-900 dark:text-charcoal-100">{announcement.title}</p>
+                        <p className="text-xs text-charcoal-600 dark:text-charcoal-400">
                           {announcement.creator.teacherProfile?.name || announcement.creator.email} • {new Date(announcement.createdAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -175,13 +175,13 @@ export default function Dashboard() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-white border border-charcoal-200 rounded-lg p-6 shadow-sm"
+              className="bg-white dark:bg-charcoal-800 border border-charcoal-200 dark:border-charcoal-700 rounded-lg p-6 shadow-sm"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif font-bold text-charcoal-900">
+                <h2 className="text-xl font-serif font-bold text-charcoal-900 dark:text-charcoal-100">
                   Recent Documents
                 </h2>
-                <Link to="/documents" className="text-sm text-gold-600 hover:text-gold-700">
+                <Link to="/documents" className="text-sm text-gold-600 dark:text-gold-500 hover:text-gold-700 dark:hover:text-gold-400">
                   View all
                 </Link>
               </div>
@@ -193,19 +193,19 @@ export default function Dashboard() {
                       initial={{ opacity: 0, x: 10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
-                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-charcoal-50 transition-smooth"
+                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-charcoal-50 dark:hover:bg-charcoal-700 transition-smooth"
                     >
                       <FileText className="w-5 h-5 text-gold-500" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-charcoal-900">{doc.title}</p>
-                        <p className="text-xs text-charcoal-600">
+                        <p className="text-sm font-medium text-charcoal-900 dark:text-charcoal-100">{doc.title}</p>
+                        <p className="text-xs text-charcoal-600 dark:text-charcoal-400">
                           {new Date(doc.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                     </motion.div>
                   ))
                 ) : (
-                  <p className="text-sm text-charcoal-500">No documents yet</p>
+                  <p className="text-sm text-charcoal-500 dark:text-charcoal-500">No documents yet</p>
                 )}
               </div>
             </motion.div>
@@ -216,13 +216,13 @@ export default function Dashboard() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-white border border-charcoal-200 rounded-lg p-6 shadow-sm"
+              className="bg-white dark:bg-charcoal-800 border border-charcoal-200 dark:border-charcoal-700 rounded-lg p-6 shadow-sm"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif font-bold text-charcoal-900">
+                <h2 className="text-xl font-serif font-bold text-charcoal-900 dark:text-charcoal-100">
                   Recent Announcements
                 </h2>
-                <Link to="/announcements" className="text-sm text-gold-600 hover:text-gold-700">
+                <Link to="/announcements" className="text-sm text-gold-600 dark:text-gold-500 hover:text-gold-700 dark:hover:text-gold-400">
                   View all
                 </Link>
               </div>
@@ -236,8 +236,8 @@ export default function Dashboard() {
                       transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
                       className="p-3 rounded-lg hover:bg-charcoal-50 transition-smooth"
                     >
-                      <p className="text-sm font-medium text-charcoal-900 mb-1">{announcement.title}</p>
-                      <p className="text-xs text-charcoal-600 line-clamp-2">{announcement.body}</p>
+                      <p className="text-sm font-medium text-charcoal-900 dark:text-charcoal-100 mb-1">{announcement.title}</p>
+                      <p className="text-xs text-charcoal-600 dark:text-charcoal-400 line-clamp-2">{announcement.body}</p>
                       <p className="text-xs text-charcoal-500 mt-2">
                         {announcement.creator.teacherProfile?.name || announcement.creator.email} • {new Date(announcement.createdAt).toLocaleDateString()}
                       </p>
@@ -253,10 +253,10 @@ export default function Dashboard() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
-              className="bg-white border border-charcoal-200 rounded-lg p-6 shadow-sm"
+              className="bg-white dark:bg-charcoal-800 border border-charcoal-200 dark:border-charcoal-700 rounded-lg p-6 shadow-sm"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif font-bold text-charcoal-900">
+                <h2 className="text-xl font-serif font-bold text-charcoal-900 dark:text-charcoal-100">
                   Recent Messages
                 </h2>
                 <Link to="/messages" className="text-sm text-gold-600 hover:text-gold-700">

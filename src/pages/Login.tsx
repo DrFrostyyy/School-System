@@ -33,23 +33,23 @@ export default function Login() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md"
+        className="bg-white dark:bg-charcoal-800 rounded-lg shadow-2xl p-8 w-full max-w-md"
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gold-500 rounded-full mb-4">
             <GraduationCap className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-serif font-bold text-charcoal-900 mb-2">
+          <h1 className="text-3xl font-serif font-bold text-charcoal-900 dark:text-charcoal-100 mb-2">
             School System
           </h1>
-          <p className="text-charcoal-600">Sign in to your account</p>
+          <p className="text-charcoal-600 dark:text-charcoal-400">Sign in to your account</p>
         </div>
 
         {error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"
+            className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"
           >
             {error}
           </motion.div>
@@ -57,7 +57,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-charcoal-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-1">
               Email
             </label>
             <input
@@ -66,13 +66,13 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-smooth"
+              className="w-full px-4 py-2 border border-charcoal-200 dark:border-charcoal-700 bg-white dark:bg-charcoal-700 text-charcoal-900 dark:text-charcoal-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-smooth"
               placeholder="your.email@school.edu"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-charcoal-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-1">
               Password
             </label>
             <input
@@ -81,7 +81,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-smooth"
+              className="w-full px-4 py-2 border border-charcoal-200 dark:border-charcoal-700 bg-white dark:bg-charcoal-700 text-charcoal-900 dark:text-charcoal-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-smooth"
               placeholder="••••••••"
             />
           </div>
@@ -97,10 +97,10 @@ export default function Login() {
           </motion.button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-charcoal-200">
-          <p className="text-sm text-charcoal-600 text-center">
+        <div className="mt-6 pt-6 border-t border-charcoal-200 dark:border-charcoal-700">
+          <p className="text-sm text-charcoal-600 dark:text-charcoal-400 text-center">
             Don't have an account?{' '}
-            <Link to="/register" className="text-gold-600 hover:text-gold-700 font-medium">
+            <Link to="/register" className="text-gold-600 dark:text-gold-500 hover:text-gold-700 dark:hover:text-gold-400 font-medium">
               Register here
             </Link>
           </p>
