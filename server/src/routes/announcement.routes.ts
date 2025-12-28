@@ -6,6 +6,16 @@ import { announcementUpload, deleteFile } from '../utils/fileUpload.js'
 
 const router = express.Router()
 
+// URL validation helper
+function isValidUrl(string: string): boolean {
+  try {
+    const url = new URL(string)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch (_) {
+    return false
+  }
+}
+
 // Get announcements (filtered by role and visibility)
 router.get('/', authenticate, async (req: AuthRequest, res) => {
   try {
@@ -143,12 +153,12 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
   }
 })
 
-// Create announcement (Admin only, or Teacher if enabled)
+// Create announcement (Admin and Teachers can create)
 router.post('/', authenticate, announcementUpload.single('attachment'), async (req: AuthRequest, res) => {
   try {
-    // For MVP, only Admin can create. Can be extended to allow teachers
-    if (req.userRole !== 'ADMIN') {
-      return res.status(403).json({ error: 'Only admins can create announcements' })
+    // Both Admin and Teachers can create announcements
+    if (req.userRole !== 'ADMIN' && req.userRole !== 'TEACHER') {
+      return res.status(403).json({ error: 'Only admins and teachers can create announcements' })
     }
 
     const validatedData = announcementSchema.parse({
@@ -160,12 +170,19 @@ router.post('/', authenticate, announcementUpload.single('attachment'), async (r
 
     const sanitizedBody = sanitizeHtml(validatedData.body)
     const attachmentPath = req.file ? `/uploads/announcements/${req.file.filename}` : null
+    const link = req.body.link || null
+
+    // Validate URL if link is provided
+    if (link && !isValidUrl(link)) {
+      return res.status(400).json({ error: 'Invalid URL format' })
+    }
 
     const announcement = await prisma.announcement.create({
       data: {
         title: validatedData.title,
         body: sanitizedBody,
         attachment: attachmentPath,
+        link: link,
         visibility: validatedData.visibility,
         createdBy: req.userId!
       }
@@ -173,10 +190,21 @@ router.post('/', authenticate, announcementUpload.single('attachment'), async (r
 
     // Create recipients based on visibility
     if (validatedData.visibility === 'ALL') {
-      // Add all teachers as recipients
+      // Add all teachers as recipients (and admin if created by teacher)
       const teachers = await prisma.user.findMany({
-        where: { role: 'TEACHER' }
+        where: { 
+          role: 'TEACHER',
+          ...(req.userRole === 'TEACHER' ? { id: { not: req.userId! } } : {})
+        }
       })
+
+      // If teacher created it, also notify admin
+      if (req.userRole === 'TEACHER') {
+        const admin = await prisma.user.findFirst({ where: { role: 'ADMIN' } })
+        if (admin) {
+          teachers.push(admin)
+        }
+      }
 
       await prisma.announcementRecipient.createMany({
         data: teachers.map(teacher => ({

@@ -274,16 +274,23 @@ router.get('/users/list', authenticate, async (req: AuthRequest, res) => {
           { role: 'ADMIN' }
         ]
       },
-      include: {
-        teacherProfile: true
-      },
       select: {
         id: true,
         email: true,
         role: true,
-        teacherProfile: true
+        teacherProfile: {
+          select: {
+            id: true,
+            name: true,
+            department: true,
+            position: true
+          }
+        }
       }
     })
+
+    console.log(`Found ${users.length} recipients for user ${req.userId}`)
+    console.log('Recipients:', users.map(u => ({ email: u.email, role: u.role, name: u.teacherProfile?.name })))
 
     res.json(users)
   } catch (error) {

@@ -34,6 +34,7 @@ interface Message {
 interface User {
   id: string
   email: string
+  role?: string
   teacherProfile?: {
     name: string
     department: string
@@ -43,11 +44,19 @@ interface User {
 export default function Messages() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent'>('inbox')
+  
+  // Admin can only view inbox
+  useEffect(() => {
+    if (user?.role === 'ADMIN' && activeTab === 'sent') {
+      setActiveTab('inbox')
+    }
+  }, [user, activeTab])
   const [messages, setMessages] = useState<Message[]>([])
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [showCompose, setShowCompose] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [loadingUsers, setLoadingUsers] = useState(false)
   const [formData, setFormData] = useState({
     recipientId: '',
     subject: '',
@@ -55,13 +64,19 @@ export default function Messages() {
   })
 
   useEffect(() => {
-    fetchUsers()
     if (activeTab === 'inbox') {
       fetchInbox()
-    } else {
+    } else if (activeTab === 'sent' && user?.role !== 'ADMIN') {
       fetchSent()
     }
-  }, [activeTab])
+  }, [activeTab, user])
+
+  // Fetch users separately when component mounts (for teachers)
+  useEffect(() => {
+    if (user?.role !== 'ADMIN') {
+      fetchUsers()
+    }
+  }, [user])
 
   const fetchInbox = async () => {
     try {
@@ -76,6 +91,10 @@ export default function Messages() {
 
   const fetchSent = async () => {
     try {
+      if (user?.role === 'ADMIN') {
+        setMessages([])
+        return
+      }
       const data = await apiClient.get<Message[]>('/messages/sent')
       setMessages(data)
     } catch (error) {
@@ -86,11 +105,20 @@ export default function Messages() {
   }
 
   const fetchUsers = async () => {
+    if (user?.role === 'ADMIN') {
+      setUsers([])
+      return
+    }
+    setLoadingUsers(true)
     try {
       const data = await apiClient.get<User[]>('/messages/users/list')
       setUsers(data)
-    } catch (error) {
+      console.log('Fetched users:', data) // Debug log
+    } catch (error: any) {
       console.error('Failed to fetch users:', error)
+      alert(error.message || 'Failed to load recipients. Please try again.')
+    } finally {
+      setLoadingUsers(false)
     }
   }
 
@@ -108,6 +136,10 @@ export default function Messages() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (user?.role === 'ADMIN') {
+      alert('Admins cannot send messages. They can only receive messages from teachers.')
+      return
+    }
     try {
       await apiClient.post('/messages', formData)
       setShowCompose(false)
@@ -157,17 +189,29 @@ export default function Messages() {
           <h1 className="text-3xl font-serif font-bold text-charcoal-900 mb-2">
             Messages
           </h1>
-          <p className="text-charcoal-600">Internal messaging system</p>
+          <p className="text-charcoal-600">
+            {user?.role === 'ADMIN' 
+              ? 'You can only receive messages from teachers' 
+              : 'Internal messaging system'}
+          </p>
         </div>
+        {user?.role !== 'ADMIN' && (
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setShowCompose(true)}
+          onClick={() => {
+            setShowCompose(true)
+            // Fetch users when opening compose modal
+            if (user?.role !== 'ADMIN') {
+              fetchUsers()
+            }
+          }}
           className="flex items-center gap-2 px-6 py-3 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-smooth shadow-sm"
         >
           <Send className="w-5 h-5" />
           <span>Compose</span>
         </motion.button>
+        )}
       </motion.div>
 
       <div className="flex gap-4 border-b border-charcoal-200">
@@ -192,22 +236,24 @@ export default function Messages() {
             )}
           </div>
         </button>
-        <button
-          onClick={() => {
-            setActiveTab('sent')
-            setSelectedMessage(null)
-          }}
-          className={`px-4 py-2 font-medium transition-smooth ${
-            activeTab === 'sent'
-              ? 'text-gold-600 border-b-2 border-gold-500'
-              : 'text-charcoal-600 hover:text-charcoal-900'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Mail className="w-4 h-4" />
-            <span>Sent</span>
-          </div>
-        </button>
+        {user?.role !== 'ADMIN' && (
+          <button
+            onClick={() => {
+              setActiveTab('sent')
+              setSelectedMessage(null)
+            }}
+            className={`px-4 py-2 font-medium transition-smooth ${
+              activeTab === 'sent'
+                ? 'text-gold-600 border-b-2 border-gold-500'
+                : 'text-charcoal-600 hover:text-charcoal-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4" />
+              <span>Sent</span>
+            </div>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -317,15 +363,27 @@ export default function Messages() {
                   value={formData.recipientId}
                   onChange={(e) => setFormData({ ...formData, recipientId: e.target.value })}
                   required
-                  className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
+                  disabled={loadingUsers}
+                  className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500 disabled:bg-charcoal-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select recipient</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.teacherProfile?.name || u.email}
-                    </option>
-                  ))}
+                  <option value="">
+                    {loadingUsers ? 'Loading recipients...' : 'Select recipient'}
+                  </option>
+                  {users.length === 0 && !loadingUsers ? (
+                    <option value="" disabled>No recipients available</option>
+                  ) : (
+                    users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.teacherProfile?.name || u.email} {u.role === 'ADMIN' ? '(Admin)' : ''}
+                      </option>
+                    ))
+                  )}
                 </select>
+                {users.length === 0 && !loadingUsers && (
+                  <p className="text-xs text-charcoal-500 mt-1">
+                    No recipients available. Make sure there are other teachers or admin in the system.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-charcoal-700 mb-1">

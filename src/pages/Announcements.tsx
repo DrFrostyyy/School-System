@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, FileText, Calendar, User, Download } from 'lucide-react'
+import { Plus, FileText, Calendar, User, Download, ExternalLink } from 'lucide-react'
 import { apiClient } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -38,7 +38,8 @@ export default function Announcements() {
     body: '',
     visibility: 'ALL',
     department: '',
-    attachment: null as File | null
+    attachment: null as File | null,
+    link: ''
   })
 
   useEffect(() => {
@@ -58,7 +59,7 @@ export default function Announcements() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (user?.role !== 'ADMIN') return
+    if (user?.role !== 'ADMIN' && user?.role !== 'TEACHER') return
 
     try {
       const formDataToSend = new FormData()
@@ -68,13 +69,16 @@ export default function Announcements() {
       if (formData.visibility === 'DEPARTMENT' && formData.department) {
         formDataToSend.append('department', formData.department)
       }
+      if (formData.link) {
+        formDataToSend.append('link', formData.link)
+      }
       if (formData.attachment) {
         formDataToSend.append('attachment', formData.attachment)
       }
 
       await apiClient.uploadFile('/announcements', formDataToSend)
       setShowModal(false)
-      setFormData({ title: '', body: '', visibility: 'ALL', department: '', attachment: null })
+      setFormData({ title: '', body: '', visibility: 'ALL', department: '', attachment: null, link: '' })
       fetchAnnouncements()
     } catch (error: any) {
       console.error('Failed to create announcement:', error)
@@ -105,7 +109,7 @@ export default function Announcements() {
           </h1>
           <p className="text-charcoal-600">View and manage school announcements</p>
         </div>
-        {user?.role === 'ADMIN' && (
+        {user && (user.role === 'ADMIN' || user.role === 'TEACHER') && (
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -166,6 +170,20 @@ export default function Announcements() {
                 </a>
               </div>
             )}
+
+            {announcement.link && (
+              <div className="mt-4 pt-4 border-t border-charcoal-200">
+                <a
+                  href={announcement.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-gold-600 hover:text-gold-700 transition-smooth"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Open Link</span>
+                </a>
+              </div>
+            )}
           </motion.div>
         ))}
 
@@ -176,7 +194,7 @@ export default function Announcements() {
         )}
       </div>
 
-      {showModal && user?.role === 'ADMIN' && (
+      {showModal && (user?.role === 'ADMIN' || user?.role === 'TEACHER') && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -213,6 +231,30 @@ export default function Announcements() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-charcoal-700 mb-1">
+                  Link/URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={formData.link}
+                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                  placeholder="https://example.com"
+                  className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal-700 mb-1">
+                  Link/URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={formData.link}
+                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                  placeholder="https://example.com"
+                  className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-charcoal-700 mb-1">
                   Visibility
                 </label>
                 <select
@@ -244,9 +286,13 @@ export default function Announcements() {
                 </label>
                 <input
                   type="file"
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png"
                   onChange={(e) => setFormData({ ...formData, attachment: e.target.files?.[0] || null })}
                   className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
                 />
+                <p className="text-xs text-charcoal-500 mt-1">
+                  Accepted: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, JPG, PNG
+                </p>
               </div>
               <div className="flex gap-3 pt-4">
                 <button

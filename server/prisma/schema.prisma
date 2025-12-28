@@ -50,6 +50,7 @@ model Announcement {
   title       String
   body        String
   attachment  String?  // File path
+  link        String?  // URL/Link
   visibility  String   @default("ALL") // "ALL" or specific department
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
