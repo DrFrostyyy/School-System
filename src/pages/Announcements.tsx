@@ -533,18 +533,6 @@ export default function Announcements() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-charcoal-700 mb-1">
-                  Link/URL (Optional)
-                </label>
-                <input
-                  type="url"
-                  value={formData.link}
-                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                  placeholder="https://example.com"
-                  className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-charcoal-700 mb-1">
                   Visibility
                 </label>
                 <select
