@@ -114,17 +114,21 @@ model Document {
 }
 
 model Message {
-  id        String   @id @default(uuid())
-  subject   String
-  body      String
-  read      Boolean  @default(false)
-  readAt    DateTime?
-  createdAt DateTime @default(now())
-  senderId  String
-  recipientId String
+  id            String    @id @default(uuid())
+  subject       String
+  body          String
+  read          Boolean   @default(false)
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
+  senderId      String
+  recipientId   String
+  parentMessageId String?  // For replies - links to parent message
+  threadId      String?    // Thread identifier - same for all messages in a conversation
 
-  sender    User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  recipient User @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender        User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient     User      @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+  parentMessage Message?  @relation("MessageReplies", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies       Message[] @relation("MessageReplies")
 
   @@map("messages")
 }

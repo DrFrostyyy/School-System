@@ -5,10 +5,10 @@ import { messageSchema, sanitizeHtml } from '../middleware/validation.middleware
 
 const router = express.Router()
 
-// Get inbox messages
+// Get inbox messages (grouped by thread - show latest message per thread)
 router.get('/inbox', authenticate, async (req: AuthRequest, res) => {
   try {
-    const messages = await prisma.message.findMany({
+    const allMessages = await prisma.message.findMany({
       where: { recipientId: req.userId! },
       include: {
         sender: {
@@ -22,14 +22,35 @@ router.get('/inbox', authenticate, async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' }
     })
 
-    res.json(messages)
+    // Group by thread and get latest message per thread
+    const threadMap = new Map<string, typeof allMessages[0]>()
+    
+    allMessages.forEach(message => {
+      const threadId = message.threadId || message.id
+      const existing = threadMap.get(threadId)
+      
+      if (!existing || new Date(message.createdAt) > new Date(existing.createdAt)) {
+        threadMap.set(threadId, message)
+      }
+    })
+
+    // Convert to array and add thread info
+    const threads = Array.from(threadMap.values()).map(message => ({
+      ...message,
+      threadId: message.threadId || message.id,
+      unreadCount: allMessages.filter(
+        m => (m.threadId || m.id) === (message.threadId || message.id) && !m.read
+      ).length
+    }))
+
+    res.json(threads)
   } catch (error) {
     console.error('Get inbox error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })
 
-// Get sent messages
+// Get sent messages (grouped by thread - show latest message per thread)
 router.get('/sent', authenticate, async (req: AuthRequest, res) => {
   try {
     // Admin has no sent messages (they can't send)
@@ -37,7 +58,7 @@ router.get('/sent', authenticate, async (req: AuthRequest, res) => {
       return res.json([])
     }
 
-    const messages = await prisma.message.findMany({
+    const allMessages = await prisma.message.findMany({
       where: { senderId: req.userId! },
       include: {
         recipient: {
@@ -51,7 +72,25 @@ router.get('/sent', authenticate, async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' }
     })
 
-    res.json(messages)
+    // Group by thread and get latest message per thread
+    const threadMap = new Map<string, typeof allMessages[0]>()
+    
+    allMessages.forEach(message => {
+      const threadId = message.threadId || message.id
+      const existing = threadMap.get(threadId)
+      
+      if (!existing || new Date(message.createdAt) > new Date(existing.createdAt)) {
+        threadMap.set(threadId, message)
+      }
+    })
+
+    // Convert to array and add thread info
+    const threads = Array.from(threadMap.values()).map(message => ({
+      ...message,
+      threadId: message.threadId || message.id
+    }))
+
+    res.json(threads)
   } catch (error) {
     console.error('Get sent messages error:', error)
     res.status(500).json({ error: 'Internal server error' })
@@ -166,12 +205,14 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
       return res.status(403).json({ error: 'Teachers can only send messages to other teachers or admin' })
     }
 
+    // Generate threadId for new messages (use message ID as threadId)
     const message = await prisma.message.create({
       data: {
         subject: validatedData.subject,
         body: sanitizedBody,
         senderId: req.userId!,
-        recipientId: validatedData.recipientId
+        recipientId: validatedData.recipientId,
+        threadId: null // Will be set after creation
       },
       include: {
         recipient: {
@@ -184,7 +225,22 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
       }
     })
 
-    res.status(201).json(message)
+    // Set threadId to message ID for the first message in a thread
+    const updatedMessage = await prisma.message.update({
+      where: { id: message.id },
+      data: { threadId: message.id },
+      include: {
+        recipient: {
+          select: {
+            id: true,
+            email: true,
+            teacherProfile: true
+          }
+        }
+      }
+    })
+
+    res.status(201).json(updatedMessage)
   } catch (error: any) {
     if (error.name === 'ZodError') {
       return res.status(400).json({ error: 'Validation error', details: error.errors })
@@ -295,6 +351,206 @@ router.get('/users/list', authenticate, async (req: AuthRequest, res) => {
     res.json(users)
   } catch (error) {
     console.error('Get users list error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Reply to a message
+router.post('/:id/reply', authenticate, async (req: AuthRequest, res) => {
+  try {
+    // Admin cannot send messages
+    if (req.userRole === 'ADMIN') {
+      return res.status(403).json({ error: 'Admins cannot send messages' })
+    }
+
+    const parentMessage = await prisma.message.findUnique({
+      where: { id: req.params.id },
+      include: {
+        sender: true,
+        recipient: true
+      }
+    })
+
+    if (!parentMessage) {
+      return res.status(404).json({ error: 'Message not found' })
+    }
+
+    // Check if user has access to this message (must be sender or recipient)
+    if (parentMessage.senderId !== req.userId! && parentMessage.recipientId !== req.userId!) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    const { body } = req.body
+
+    if (!body || !body.trim()) {
+      return res.status(400).json({ error: 'Message body is required' })
+    }
+
+    const sanitizedBody = sanitizeHtml(body.trim())
+
+    // Determine recipient: if current user is sender, reply goes to original recipient; otherwise to original sender
+    const recipientId = parentMessage.senderId === req.userId! 
+      ? parentMessage.recipientId 
+      : parentMessage.senderId
+
+    // Use parent's threadId, or parent's ID if no threadId exists (for backward compatibility)
+    const threadId = parentMessage.threadId || parentMessage.id
+
+    const reply = await prisma.message.create({
+      data: {
+        subject: `Re: ${parentMessage.subject}`,
+        body: sanitizedBody,
+        senderId: req.userId!,
+        recipientId: recipientId,
+        parentMessageId: parentMessage.id,
+        threadId: threadId
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            email: true,
+            teacherProfile: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            email: true,
+            teacherProfile: true
+          }
+        },
+        parentMessage: {
+          select: {
+            id: true,
+            subject: true
+          }
+        }
+      }
+    })
+
+    res.status(201).json(reply)
+  } catch (error: any) {
+    console.error('Reply message error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Get message thread (conversation)
+router.get('/:id/thread', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const message = await prisma.message.findUnique({
+      where: { id: req.params.id }
+    })
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' })
+    }
+
+    // Check if user has access to this message
+    if (message.senderId !== req.userId! && message.recipientId !== req.userId!) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    // Get threadId (use message ID if threadId is null for backward compatibility)
+    const threadId = message.threadId || message.id
+
+    // Get all messages in the thread
+    const threadMessages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { threadId: threadId },
+          { id: threadId } // Include the original message
+        ]
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            email: true,
+            teacherProfile: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            email: true,
+            teacherProfile: true
+          }
+        },
+        parentMessage: {
+          select: {
+            id: true,
+            subject: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'asc' } // Oldest first for conversation view
+    })
+
+    // Mark all unread messages in thread as read if user is recipient
+    const unreadMessages = threadMessages.filter(
+      msg => msg.recipientId === req.userId! && !msg.read
+    )
+
+    if (unreadMessages.length > 0) {
+      await prisma.message.updateMany({
+        where: {
+          id: { in: unreadMessages.map(m => m.id) },
+          recipientId: req.userId!
+        },
+        data: {
+          read: true,
+          readAt: new Date()
+        }
+      })
+
+      // Update read status in response
+      threadMessages.forEach(msg => {
+        if (unreadMessages.some(m => m.id === msg.id)) {
+          msg.read = true
+          msg.readAt = new Date()
+        }
+      })
+    }
+
+    res.json(threadMessages)
+  } catch (error) {
+    console.error('Get thread error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Mark entire thread as read
+router.patch('/thread/:threadId/read', authenticate, async (req: AuthRequest, res) => {
+  try {
+    // Get all messages in thread where user is recipient
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { threadId: req.params.threadId },
+          { id: req.params.threadId }
+        ],
+        recipientId: req.userId!,
+        read: false
+      }
+    })
+
+    if (messages.length > 0) {
+      await prisma.message.updateMany({
+        where: {
+          id: { in: messages.map(m => m.id) }
+        },
+        data: {
+          read: true,
+          readAt: new Date()
+        }
+      })
+    }
+
+    res.json({ message: 'Thread marked as read', count: messages.length })
+  } catch (error) {
+    console.error('Mark thread read error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

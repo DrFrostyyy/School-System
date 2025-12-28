@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Send, Inbox, Mail, Trash2, User, Clock, Search } from 'lucide-react'
+import { Send, Inbox, Mail, Trash2, User, Search, Reply, MessageSquare } from 'lucide-react'
 import { apiClient } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -13,6 +13,9 @@ interface Message {
   createdAt: string
   senderId: string
   recipientId: string
+  parentMessageId?: string | null
+  threadId?: string | null
+  unreadCount?: number
   sender?: {
     id: string
     email: string
@@ -28,6 +31,10 @@ interface Message {
       name: string
       department: string
     }
+  }
+  parentMessage?: {
+    id: string
+    subject: string
   }
 }
 
@@ -55,10 +62,14 @@ export default function Messages() {
   const [filteredMessages, setFilteredMessages] = useState<Message[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
+  const [threadMessages, setThreadMessages] = useState<Message[]>([])
+  const [showThread, setShowThread] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [showCompose, setShowCompose] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [replyBody, setReplyBody] = useState('')
   const [formData, setFormData] = useState({
     recipientId: '',
     subject: '',
@@ -150,6 +161,18 @@ export default function Messages() {
 
   const handleSelectMessage = async (message: Message) => {
     setSelectedMessage(message)
+    setShowThread(true)
+    
+    // Fetch thread messages
+    try {
+      const threadData = await apiClient.get<Message[]>(`/messages/${message.id}/thread`)
+      setThreadMessages(threadData)
+    } catch (error) {
+      console.error('Failed to fetch thread:', error)
+      // Fallback to single message
+      setThreadMessages([message])
+    }
+
     if (!message.read && activeTab === 'inbox') {
       try {
         await apiClient.patch(`/messages/${message.id}/read`)
@@ -157,6 +180,49 @@ export default function Messages() {
       } catch (error) {
         console.error('Failed to mark as read:', error)
       }
+    }
+  }
+
+  const handleReply = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!replyingTo || !replyBody.trim()) return
+
+    try {
+      await apiClient.post(`/messages/${replyingTo.id}/reply`, { body: replyBody })
+      setReplyBody('')
+      setReplyingTo(null)
+      
+      // Refresh thread
+      if (selectedMessage) {
+        const threadData = await apiClient.get<Message[]>(`/messages/${selectedMessage.id}/thread`)
+        setThreadMessages(threadData)
+      }
+      
+      // Refresh inbox/sent
+      if (activeTab === 'inbox') {
+        fetchInbox()
+      } else {
+        fetchSent()
+      }
+    } catch (error: any) {
+      console.error('Failed to send reply:', error)
+      alert(error.message || 'Failed to send reply')
+    }
+  }
+
+  const markThreadAsRead = async (threadId: string) => {
+    try {
+      await apiClient.patch(`/messages/thread/${threadId}/read`)
+      if (activeTab === 'inbox') {
+        fetchInbox()
+      }
+      // Refresh thread
+      if (selectedMessage) {
+        const threadData = await apiClient.get<Message[]>(`/messages/${selectedMessage.id}/thread`)
+        setThreadMessages(threadData)
+      }
+    } catch (error) {
+      console.error('Failed to mark thread as read:', error)
     }
   }
 
@@ -202,6 +268,17 @@ export default function Messages() {
       return message.sender?.teacherProfile?.name || message.sender?.email || 'Unknown'
     }
     return message.recipient?.teacherProfile?.name || message.recipient?.email || 'Unknown'
+  }
+
+  const getMessageRecipient = (message: Message) => {
+    if (activeTab === 'inbox') {
+      return message.recipient?.teacherProfile?.name || message.recipient?.email || 'Unknown'
+    }
+    // For sent messages, check if recipient has teacherProfile (if not, likely admin)
+    if (!message.recipient?.teacherProfile) {
+      return 'Admin'
+    }
+    return message.recipient.teacherProfile.name || message.recipient.email || 'Unknown'
   }
 
   return (
@@ -260,10 +337,11 @@ export default function Messages() {
 
       <div className="flex gap-4 border-b border-charcoal-200">
         <button
-          onClick={() => {
-            setActiveTab('inbox')
-            setSelectedMessage(null)
-          }}
+            onClick={() => {
+              setActiveTab('inbox')
+              setSelectedMessage(null)
+              setShowThread(false)
+            }}
           className={`px-4 py-2 font-medium transition-smooth ${
             activeTab === 'inbox'
               ? 'text-gold-600 border-b-2 border-gold-500'
@@ -285,6 +363,7 @@ export default function Messages() {
             onClick={() => {
               setActiveTab('sent')
               setSelectedMessage(null)
+              setShowThread(false)
             }}
             className={`px-4 py-2 font-medium transition-smooth ${
               activeTab === 'sent'
@@ -327,10 +406,23 @@ export default function Messages() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-charcoal-900 truncate">
-                        {getMessageSender(message)}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-charcoal-900 truncate">
+                          {getMessageSender(message)}
+                        </p>
+                        {message.unreadCount && message.unreadCount > 0 && (
+                          <span className="px-2 py-0.5 bg-gold-500 text-white text-xs rounded-full">
+                            {message.unreadCount}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-charcoal-600 truncate">{message.subject}</p>
+                      {message.parentMessageId && (
+                        <p className="text-xs text-charcoal-400 flex items-center gap-1 mt-1">
+                          <MessageSquare className="w-3 h-3" />
+                          Reply
+                        </p>
+                      )}
                     </div>
                     {!message.read && activeTab === 'inbox' && (
                       <span className="w-2 h-2 bg-gold-500 rounded-full flex-shrink-0 ml-2"></span>
@@ -347,40 +439,140 @@ export default function Messages() {
         </div>
 
         <div className="bg-white border border-charcoal-200 rounded-lg shadow-sm overflow-hidden">
-          {selectedMessage ? (
+          {selectedMessage && showThread ? (
             <div className="h-full flex flex-col">
-              <div className="p-6 border-b border-charcoal-200">
+              <div className="p-6 border-b border-charcoal-200 bg-charcoal-50">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <h3 className="text-xl font-serif font-bold text-charcoal-900 mb-2">
-                      {selectedMessage.subject}
+                      {selectedMessage.subject.replace(/^Re: /, '')}
                     </h3>
                     <div className="flex items-center gap-4 text-sm text-charcoal-600">
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4" />
-                        <span>{getMessageSender(selectedMessage)}</span>
+                        <span>
+                          {activeTab === 'inbox' 
+                            ? getMessageSender(selectedMessage)
+                            : getMessageRecipient(selectedMessage)}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        <span>{new Date(selectedMessage.createdAt).toLocaleString()}</span>
-                      </div>
+                      {threadMessages.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4" />
+                          <span>{threadMessages.length} messages</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleDelete(selectedMessage.id)}
-                    className="p-2 text-charcoal-400 hover:text-red-600 transition-smooth"
+                  <div className="flex items-center gap-2">
+                    {user?.role !== 'ADMIN' && (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setReplyingTo(selectedMessage)
+                          setReplyBody('')
+                        }}
+                        className="p-2 text-charcoal-400 hover:text-gold-600 transition-smooth"
+                        title="Reply"
+                      >
+                        <Reply className="w-5 h-5" />
+                      </motion.button>
+                    )}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleDelete(selectedMessage.id)}
+                      className="p-2 text-charcoal-400 hover:text-red-600 transition-smooth"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {threadMessages.map((msg, index) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={`p-4 rounded-lg border ${
+                      msg.senderId === user?.id
+                        ? 'bg-gold-50 border-gold-200 ml-8'
+                        : 'bg-charcoal-50 border-charcoal-200 mr-8'
+                    }`}
                   >
-                    <Trash2 className="w-5 h-5" />
-                  </motion.button>
-                </div>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-charcoal-900">
+                            {msg.senderId === user?.id
+                              ? 'You'
+                              : getMessageSender(msg)}
+                          </span>
+                          {msg.parentMessageId && (
+                            <span className="text-xs text-charcoal-400 flex items-center gap-1">
+                              <Reply className="w-3 h-3" />
+                              Reply
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-charcoal-500">
+                          {new Date(msg.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-charcoal-700 whitespace-pre-wrap mt-2">{msg.body}</p>
+                  </motion.div>
+                ))}
               </div>
-              <div className="p-6 flex-1 overflow-y-auto">
-                <div className="prose max-w-none">
-                  <p className="text-charcoal-700 whitespace-pre-wrap">{selectedMessage.body}</p>
+              
+              {/* Reply Form */}
+              {replyingTo && user?.role !== 'ADMIN' && (
+                <div className="p-6 border-t border-charcoal-200 bg-charcoal-50">
+                  <form onSubmit={handleReply} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-charcoal-700 mb-1">
+                        Reply
+                      </label>
+                      <textarea
+                        value={replyBody}
+                        onChange={(e) => setReplyBody(e.target.value)}
+                        required
+                        rows={4}
+                        className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
+                        placeholder="Type your reply..."
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <motion.button
+                        type="submit"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="px-4 py-2 bg-gold-500 text-white rounded-lg hover:bg-gold-600 transition-smooth"
+                      >
+                        Send Reply
+                      </motion.button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyingTo(null)
+                          setReplyBody('')
+                        }}
+                        className="px-4 py-2 border border-charcoal-200 rounded-lg hover:bg-charcoal-50 transition-smooth"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
                 </div>
-              </div>
+              )}
+            </div>
+          ) : selectedMessage ? (
+            <div className="h-full flex items-center justify-center text-charcoal-500">
+              Loading conversation...
             </div>
           ) : (
             <div className="h-full flex items-center justify-center text-charcoal-500">
