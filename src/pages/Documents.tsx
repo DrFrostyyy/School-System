@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, FileText, Download, Calendar, User, Filter, Search, Folder, FolderPlus, Edit, Trash2, X } from 'lucide-react'
+import { Plus, FileText, Download, Calendar, User, Filter, Search, Folder, FolderPlus, Edit, Trash2, X, Eye } from 'lucide-react'
 import { apiClient } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
+import FilePreview from '../components/FilePreview'
 
 interface Folder {
   id: string
@@ -60,6 +61,7 @@ export default function Documents() {
   const [showModal, setShowModal] = useState(false)
   const [showFolderModal, setShowFolderModal] = useState(false)
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
+  const [previewFile, setPreviewFile] = useState<{ url: string; fileName: string; mimeType: string } | null>(null)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -429,15 +431,30 @@ export default function Documents() {
               </div>
             </div>
 
-            <a
-              href={getFileUrl(doc.filePath)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-gold-50 text-gold-700 rounded-lg hover:bg-gold-100 transition-smooth"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download</span>
-            </a>
+            <div className="flex gap-2">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setPreviewFile({
+                  url: getFileUrl(doc.filePath),
+                  fileName: doc.fileName,
+                  mimeType: doc.mimeType
+                })}
+                className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-charcoal-50 text-charcoal-700 rounded-lg hover:bg-charcoal-100 transition-smooth"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Preview</span>
+              </motion.button>
+              <a
+                href={getFileUrl(doc.filePath)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 flex-1 px-4 py-2 bg-gold-50 text-gold-700 rounded-lg hover:bg-gold-100 transition-smooth"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download</span>
+              </a>
+            </div>
           </motion.div>
         ))}
       </div>
@@ -619,6 +636,15 @@ export default function Documents() {
             </form>
           </motion.div>
         </div>
+      )}
+
+      {previewFile && (
+        <FilePreview
+          fileUrl={previewFile.url}
+          fileName={previewFile.fileName}
+          mimeType={previewFile.mimeType}
+          onClose={() => setPreviewFile(null)}
+        />
       )}
     </div>
   )

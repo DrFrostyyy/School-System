@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, FileText, Calendar, User, Download, ExternalLink, Edit, Trash2, Pin, PinOff, Search, CheckCircle, Circle, Users } from 'lucide-react'
+import { Plus, Calendar, User, Download, ExternalLink, Edit, Trash2, Pin, PinOff, Search, CheckCircle, Circle, Users, Eye } from 'lucide-react'
 // @ts-ignore - react-quill doesn't have official types
 import ReactQuill from 'react-quill'
 import 'react-quill/dist/quill.snow.css'
 import { apiClient } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
+import FilePreview from '../components/FilePreview'
 
 // Quill editor modules configuration
 const quillModules = {
@@ -99,6 +100,7 @@ export default function Announcements() {
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null)
   const [engagementMetrics, setEngagementMetrics] = useState<EngagementMetrics | null>(null)
   const [showEngagementModal, setShowEngagementModal] = useState(false)
+  const [previewFile, setPreviewFile] = useState<{ url: string; fileName: string; mimeType: string } | null>(null)
   const [formData, setFormData] = useState({
     title: '',
     body: '',
@@ -258,6 +260,29 @@ export default function Announcements() {
     if (!attachment) return null
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
     return `${baseUrl}${attachment}`
+  }
+
+  const getMimeTypeFromFileName = (fileName: string): string => {
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    const mimeTypes: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'mp4': 'video/mp4',
+      'webm': 'video/webm',
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav'
+    }
+    return mimeTypes[ext || ''] || 'application/octet-stream'
   }
 
   if (isLoading) {
@@ -441,16 +466,32 @@ export default function Announcements() {
 
             {announcement.attachment && getAttachmentUrl(announcement.attachment) && (
               <div className="mt-4 pt-4 border-t border-charcoal-200">
-                <a
-                  href={getAttachmentUrl(announcement.attachment) || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-gold-600 hover:text-gold-700 transition-smooth"
-                >
-                  <FileText className="w-4 h-4" />
-                  <span>Download Attachment</span>
-                  <Download className="w-4 h-4" />
-                </a>
+                <div className="flex items-center gap-3">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      if (!announcement.attachment) return
+                      const url = getAttachmentUrl(announcement.attachment)
+                      const fileName = announcement.attachment.split('/').pop() || 'attachment'
+                      const mimeType = getMimeTypeFromFileName(fileName)
+                      setPreviewFile({ url: url || '', fileName, mimeType })
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-charcoal-50 text-charcoal-700 rounded-lg hover:bg-charcoal-100 transition-smooth"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>Preview</span>
+                  </motion.button>
+                  <a
+                    href={getAttachmentUrl(announcement.attachment) || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gold-50 text-gold-700 rounded-lg hover:bg-gold-100 transition-smooth"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download</span>
+                  </a>
+                </div>
               </div>
             )}
 
@@ -712,6 +753,15 @@ export default function Announcements() {
             </div>
           </motion.div>
         </div>
+      )}
+
+      {previewFile && (
+        <FilePreview
+          fileUrl={previewFile.url}
+          fileName={previewFile.fileName}
+          mimeType={previewFile.mimeType}
+          onClose={() => setPreviewFile(null)}
+        />
       )}
     </div>
   )
