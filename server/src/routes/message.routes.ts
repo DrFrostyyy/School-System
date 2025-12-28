@@ -32,6 +32,11 @@ router.get('/inbox', authenticate, async (req: AuthRequest, res) => {
 // Get sent messages
 router.get('/sent', authenticate, async (req: AuthRequest, res) => {
   try {
+    // Admin has no sent messages (they can't send)
+    if (req.userRole === 'ADMIN') {
+      return res.json([])
+    }
+
     const messages = await prisma.message.findMany({
       where: { senderId: req.userId! },
       include: {
@@ -125,8 +130,22 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 // Send message
 router.post('/', authenticate, async (req: AuthRequest, res) => {
   try {
+    // Admin cannot send messages
+    if (req.userRole === 'ADMIN') {
+      return res.status(403).json({ error: 'Admins cannot send messages. They can only receive messages from teachers.' })
+    }
+
     const validatedData = messageSchema.parse(req.body)
     const sanitizedBody = sanitizeHtml(validatedData.body)
+
+    // Get sender info
+    const sender = await prisma.user.findUnique({
+      where: { id: req.userId! }
+    })
+
+    if (!sender) {
+      return res.status(404).json({ error: 'Sender not found' })
+    }
 
     // Verify recipient exists
     const recipient = await prisma.user.findUnique({
@@ -139,6 +158,12 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 
     if (recipient.id === req.userId!) {
       return res.status(400).json({ error: 'Cannot send message to yourself' })
+    }
+
+    // Teachers can send to other teachers and admin
+    // Admin cannot send (already checked above)
+    if (sender.role === 'TEACHER' && recipient.role !== 'TEACHER' && recipient.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Teachers can only send messages to other teachers or admin' })
     }
 
     const message = await prisma.message.create({
@@ -232,12 +257,22 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
   }
 })
 
-// Get users list for messaging (Admin sees all, Teachers see all)
+// Get users list for messaging
 router.get('/users/list', authenticate, async (req: AuthRequest, res) => {
   try {
+    // Admin cannot send messages, so return empty list
+    if (req.userRole === 'ADMIN') {
+      return res.json([])
+    }
+
+    // Teachers can send to other teachers and admin
     const users = await prisma.user.findMany({
       where: {
-        id: { not: req.userId! } // Exclude current user
+        id: { not: req.userId! }, // Exclude current user
+        OR: [
+          { role: 'TEACHER' },
+          { role: 'ADMIN' }
+        ]
       },
       include: {
         teacherProfile: true
