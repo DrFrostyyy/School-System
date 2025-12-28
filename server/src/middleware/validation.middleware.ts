@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { body, validationResult } from 'express-validator'
 import { z } from 'zod'
+import DOMPurify from 'isomorphic-dompurify'
 
 export const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req)
@@ -44,10 +45,19 @@ export const messageSchema = z.object({
 })
 
 export const sanitizeHtml = (text: string): string => {
-  // Basic HTML sanitization - remove script tags and dangerous attributes
-  return text
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/on\w+="[^"]*"/gi, '')
-    .replace(/on\w+='[^']*'/gi, '')
+  // Use DOMPurify for comprehensive HTML sanitization
+  // Allows safe HTML tags (h1-h6, p, ul, ol, li, strong, em, u, a, etc.)
+  // while removing dangerous content (scripts, event handlers, etc.)
+  return DOMPurify.sanitize(text, {
+    ALLOWED_TAGS: [
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'p', 'br', 'strong', 'em', 'u', 's', 'strike',
+      'ul', 'ol', 'li',
+      'a',
+      'span', 'div'
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'style', 'class'],
+    ALLOW_DATA_ATTR: false
+  })
 }
 

@@ -1,8 +1,31 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, FileText, Calendar, User, Download, ExternalLink, Edit, Trash2, Pin, PinOff, Search, CheckCircle, Circle, Users } from 'lucide-react'
+// @ts-ignore - react-quill doesn't have official types
+import ReactQuill from 'react-quill'
+import 'react-quill/dist/quill.snow.css'
 import { apiClient } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
+
+// Quill editor modules configuration
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    [{ 'color': [] }, { 'background': [] }],
+    ['link'],
+    ['clean']
+  ],
+}
+
+const quillFormats = [
+  'header',
+  'bold', 'italic', 'underline', 'strike',
+  'list', 'bullet',
+  'color', 'background',
+  'link'
+]
 
 interface Announcement {
   id: string
@@ -157,6 +180,13 @@ export default function Announcements() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (user?.role !== 'ADMIN' && user?.role !== 'TEACHER') return
+
+    // Validate body - check if it has actual content (not just empty HTML tags)
+    const bodyText = formData.body.replace(/<[^>]*>/g, '').trim()
+    if (!bodyText) {
+      alert('Please enter announcement body content')
+      return
+    }
 
     try {
       const formDataToSend = new FormData()
@@ -403,7 +433,10 @@ export default function Announcements() {
             </div>
             
             <div className="prose max-w-none mb-4">
-              <p className="text-charcoal-700 whitespace-pre-wrap">{announcement.body}</p>
+              <div 
+                className="text-charcoal-700 quill-content"
+                dangerouslySetInnerHTML={{ __html: announcement.body }}
+              />
             </div>
 
             {announcement.attachment && getAttachmentUrl(announcement.attachment) && (
@@ -471,13 +504,20 @@ export default function Announcements() {
                 <label className="block text-sm font-medium text-charcoal-700 mb-1">
                   Body
                 </label>
-                <textarea
-                  value={formData.body}
-                  onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                  required
-                  rows={6}
-                  className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
-                />
+                <div className="border border-charcoal-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-gold-500">
+                  <ReactQuill
+                    theme="snow"
+                    value={formData.body}
+                    onChange={(value: string) => setFormData({ ...formData, body: value })}
+                    modules={quillModules}
+                    formats={quillFormats}
+                    placeholder="Write your announcement..."
+                    style={{ minHeight: '200px' }}
+                  />
+                </div>
+                {!formData.body || formData.body.replace(/<[^>]*>/g, '').trim() === '' && (
+                  <p className="text-xs text-red-500 mt-1">Body is required</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-charcoal-700 mb-1">
