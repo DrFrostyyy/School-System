@@ -299,5 +299,143 @@ router.get('/users/list', authenticate, async (req: AuthRequest, res) => {
   }
 })
 
+// Get all notifications (messages + announcements)
+router.get('/notifications', authenticate, async (req: AuthRequest, res) => {
+  try {
+    // Get unread messages
+    const unreadMessages = await prisma.message.findMany({
+      where: {
+        recipientId: req.userId!,
+        read: false
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            email: true,
+            teacherProfile: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10
+    })
+
+    // Get unread announcements
+    let unreadAnnouncements: any[] = []
+    
+    if (req.userRole === 'ADMIN') {
+      // Admin sees all recent announcements
+      const announcements = await prisma.announcement.findMany({
+        where: {
+          createdAt: {
+            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+          }
+        },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              email: true,
+              teacherProfile: {
+                select: {
+                  name: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
+      unreadAnnouncements = announcements
+    } else {
+      // Teachers see unread announcements assigned to them
+      const user = await prisma.user.findUnique({
+        where: { id: req.userId! },
+        include: { teacherProfile: true }
+      })
+
+      if (user?.teacherProfile) {
+        const announcements = await prisma.announcement.findMany({
+          where: {
+            OR: [
+              { visibility: 'ALL' },
+              {
+                AND: [
+                  { visibility: 'DEPARTMENT' },
+                  { recipients: { some: { userId: req.userId! } } }
+                ]
+              }
+            ]
+          },
+          include: {
+            creator: {
+              select: {
+                id: true,
+                email: true,
+                teacherProfile: {
+                  select: {
+                    name: true
+                  }
+                }
+              }
+            },
+            recipients: {
+              where: { userId: req.userId! }
+            }
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        })
+
+        // Filter to only unread announcements
+        unreadAnnouncements = announcements.filter(ann => {
+          const recipient = ann.recipients.find(r => r.userId === req.userId!)
+          return !recipient || !recipient.read
+        })
+      }
+    }
+
+    // Format notifications
+    const notifications = [
+      ...unreadMessages.map(msg => ({
+        id: msg.id,
+        type: 'message' as const,
+        title: msg.subject,
+        body: msg.body.substring(0, 100) + (msg.body.length > 100 ? '...' : ''),
+        from: msg.sender.teacherProfile?.name || msg.sender.email,
+        createdAt: msg.createdAt,
+        read: msg.read
+      })),
+      ...unreadAnnouncements.map(ann => ({
+        id: ann.id,
+        type: 'announcement' as const,
+        title: ann.title,
+        body: ann.body.substring(0, 100) + (ann.body.length > 100 ? '...' : ''),
+        from: ann.creator.teacherProfile?.name || ann.creator.email,
+        createdAt: ann.createdAt,
+        read: ann.recipients?.[0]?.read || false
+      }))
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
+    const totalUnread = unreadMessages.length + unreadAnnouncements.length
+
+    res.json({
+      notifications,
+      totalUnread,
+      unreadMessages: unreadMessages.length,
+      unreadAnnouncements: unreadAnnouncements.length
+    })
+  } catch (error) {
+    console.error('Get notifications error:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
 export default router
 

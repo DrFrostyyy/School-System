@@ -24,21 +24,23 @@ model User {
   receivedMessages Message[] @relation("ReceivedMessages")
   createdAnnouncements Announcement[]
   uploadedDocuments Document[]
+  createdFolders Folder[]
   announcementRecipients AnnouncementRecipient[]
 
   @@map("users")
 }
 
 model Teacher {
-  id          String   @id @default(uuid())
-  userId      String   @unique
-  name        String
-  department  String
-  position    String
-  phone       String?
-  status      String   @default("ACTIVE") // "ACTIVE" or "INACTIVE"
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  name          String
+  department    String
+  position      String
+  phone         String?
+  profilePicture String? // File path
+  status        String   @default("ACTIVE") // "ACTIVE" or "INACTIVE"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -77,11 +79,26 @@ model AnnouncementRecipient {
   @@map("announcement_recipients")
 }
 
+model Folder {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@map("folders")
+}
+
 model Document {
   id          String   @id @default(uuid())
   title       String
   description String?
   category    String
+  folderId    String?  // Optional folder for organization
   filePath    String   // File path on server
   fileName    String   // Original file name
   fileSize      Int     // Size in bytes
@@ -91,6 +108,7 @@ model Document {
   uploadedBy  String
 
   uploader User @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  folder   Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   @@map("documents")
 }

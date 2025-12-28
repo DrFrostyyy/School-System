@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { GraduationCap } from 'lucide-react'
@@ -67,7 +67,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full px-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-smooth"
-              placeholder="admin@school.edu"
+              placeholder="your.email@school.edu"
             />
           </div>
 
@@ -98,10 +98,11 @@ export default function Login() {
         </form>
 
         <div className="mt-6 pt-6 border-t border-charcoal-200">
-          <p className="text-xs text-charcoal-500 text-center">
-            Default credentials:<br />
-            Admin: admin@school.edu / admin123<br />
-            Teacher: teacher1@school.edu / teacher123
+          <p className="text-sm text-charcoal-600 text-center">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-gold-600 hover:text-gold-700 font-medium">
+              Register here
+            </Link>
           </p>
         </div>
       </motion.div>

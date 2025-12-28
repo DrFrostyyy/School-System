@@ -8,6 +8,7 @@ import {
   FileText,
   MessageSquare,
   LogOut,
+  User,
 } from 'lucide-react'
 
 const menuItems = [
@@ -54,26 +55,35 @@ export default function Sidebar() {
               }`
             }
           >
-            {({ isActive }) => (
-              <motion.div
-                initial={{ x: -10, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-3 w-full"
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.label}</span>
-              </motion.div>
-            )}
+            <motion.div
+              initial={{ x: -10, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: index * 0.1 }}
+              className="flex items-center gap-3 w-full"
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="font-medium">{item.label}</span>
+            </motion.div>
           </NavLink>
         ))}
       </nav>
       
       <div className="p-4 border-t border-gold-500/20 space-y-2">
-        <div className="px-4 py-2 text-xs text-charcoal-400">
-          <div className="font-medium text-charcoal-300">{user?.email}</div>
-          <div className="text-charcoal-500">{user?.role}</div>
-        </div>
+        <NavLink
+          to="/profile"
+          className={({ isActive }) => {
+            const baseClasses = 'flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth'
+            return isActive
+              ? `${baseClasses} bg-gold-500/20 text-gold-500 border-l-4 border-gold-500`
+              : `${baseClasses} text-charcoal-300 hover:bg-charcoal-800 hover:text-gold-400`
+          }}
+        >
+          <User className="w-5 h-5" />
+          <div className="flex-1 text-xs">
+            <div className="font-medium">{user?.teacherProfile?.name || user?.email}</div>
+            <div className="text-charcoal-500">{user?.role}</div>
+          </div>
+        </NavLink>
         <motion.button
           onClick={handleLogout}
           whileHover={{ scale: 1.02 }}
@@ -84,7 +94,7 @@ export default function Sidebar() {
           <span className="font-medium">Logout</span>
         </motion.button>
         <div className="text-xs text-charcoal-500 text-center pt-2">
-          © 2024 School Information System
+          © 2025 School Information System
         </div>
       </div>
     </motion.aside>

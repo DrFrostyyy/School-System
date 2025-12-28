@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { UserCheck, Mail, Phone, BookOpen, Plus, Edit, Trash2, X } from 'lucide-react'
+import { Mail, Phone, Plus, Edit, Trash2, X, Search } from 'lucide-react'
 import { apiClient } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -27,6 +27,8 @@ interface User {
 export default function Teachers() {
   const { user } = useAuth()
   const [teachers, setTeachers] = useState<Teacher[]>([])
+  const [filteredTeachers, setFilteredTeachers] = useState<Teacher[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -45,18 +47,42 @@ export default function Teachers() {
     if (user?.role === 'ADMIN') {
       fetchUsers()
     }
+
+    // Listen for global search events
+    const handleGlobalSearch = (e: CustomEvent) => {
+      setSearchQuery(e.detail.query)
+    }
+    window.addEventListener('globalSearch', handleGlobalSearch as EventListener)
+    return () => window.removeEventListener('globalSearch', handleGlobalSearch as EventListener)
   }, [])
 
   const fetchTeachers = async () => {
     try {
       const data = await apiClient.get<Teacher[]>('/teachers')
       setTeachers(data)
+      setFilteredTeachers(data)
     } catch (error) {
       console.error('Failed to fetch teachers:', error)
     } finally {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredTeachers(teachers)
+    } else {
+      const query = searchQuery.toLowerCase()
+      const filtered = teachers.filter(teacher =>
+        teacher.name.toLowerCase().includes(query) ||
+        teacher.department.toLowerCase().includes(query) ||
+        teacher.position.toLowerCase().includes(query) ||
+        teacher.user.email.toLowerCase().includes(query) ||
+        (teacher.phone && teacher.phone.toLowerCase().includes(query))
+      )
+      setFilteredTeachers(filtered)
+    }
+  }, [searchQuery, teachers])
 
   const fetchUsers = async () => {
     try {
@@ -170,8 +196,26 @@ export default function Teachers() {
         )}
       </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white border border-charcoal-200 rounded-lg p-4"
+      >
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-charcoal-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search teachers by name, department, position, email, or phone..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500/50 focus:border-gold-500 transition-smooth"
+          />
+        </div>
+      </motion.div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {teachers.map((teacher, index) => (
+        {filteredTeachers.map((teacher, index) => (
           <motion.div
             key={teacher.id}
             initial={{ opacity: 0, y: 20 }}
@@ -240,6 +284,11 @@ export default function Teachers() {
         ))}
       </div>
 
+      {filteredTeachers.length === 0 && teachers.length > 0 && (
+        <div className="text-center py-12 text-charcoal-500">
+          No teachers found matching "{searchQuery}"
+        </div>
+      )}
       {teachers.length === 0 && (
         <div className="text-center py-12 text-charcoal-500">
           No teachers found

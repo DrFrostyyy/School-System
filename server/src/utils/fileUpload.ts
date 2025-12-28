@@ -28,6 +28,13 @@ const ALLOWED_ANNOUNCEMENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
 ]
 
+const ALLOWED_PROFILE_PICTURE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp'
+]
+
 // Ensure upload directory exists
 const uploadDir = path.join(process.cwd(), 'uploads')
 if (!fs.existsSync(uploadDir)) {
@@ -36,7 +43,12 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const subfolder = req.path.includes('announcements') ? 'announcements' : 'documents'
+    let subfolder = 'documents'
+    if (req.path.includes('announcements')) {
+      subfolder = 'announcements'
+    } else if (req.path.includes('profile')) {
+      subfolder = 'profiles'
+    }
     const dir = path.join(uploadDir, subfolder)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
@@ -67,6 +79,12 @@ export const announcementUpload = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: fileFilter(ALLOWED_ANNOUNCEMENT_TYPES)
+})
+
+export const profilePictureUpload = multer({
+  storage,
+  limits: { fileSize: 5242880 }, // 5MB for profile pictures
+  fileFilter: fileFilter(ALLOWED_PROFILE_PICTURE_TYPES)
 })
 
 export const deleteFile = (filePath: string) => {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Send, Inbox, Mail, Trash2, User, Clock } from 'lucide-react'
+import { Send, Inbox, Mail, Trash2, User, Clock, Search } from 'lucide-react'
 import { apiClient } from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -52,6 +52,8 @@ export default function Messages() {
     }
   }, [user, activeTab])
   const [messages, setMessages] = useState<Message[]>([])
+  const [filteredMessages, setFilteredMessages] = useState<Message[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [showCompose, setShowCompose] = useState(false)
@@ -76,6 +78,13 @@ export default function Messages() {
     if (user?.role !== 'ADMIN') {
       fetchUsers()
     }
+
+    // Listen for global search events
+    const handleGlobalSearch = (e: CustomEvent) => {
+      setSearchQuery(e.detail.query)
+    }
+    window.addEventListener('globalSearch', handleGlobalSearch as EventListener)
+    return () => window.removeEventListener('globalSearch', handleGlobalSearch as EventListener)
   }, [user])
 
   const fetchInbox = async () => {
@@ -121,6 +130,23 @@ export default function Messages() {
       setLoadingUsers(false)
     }
   }
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredMessages(messages)
+    } else {
+      const query = searchQuery.toLowerCase()
+      const filtered = messages.filter(message =>
+        message.subject.toLowerCase().includes(query) ||
+        message.body.toLowerCase().includes(query) ||
+        message.sender?.teacherProfile?.name.toLowerCase().includes(query) ||
+        message.sender?.email.toLowerCase().includes(query) ||
+        message.recipient?.teacherProfile?.name.toLowerCase().includes(query) ||
+        message.recipient?.email.toLowerCase().includes(query)
+      )
+      setFilteredMessages(filtered)
+    }
+  }, [searchQuery, messages])
 
   const handleSelectMessage = async (message: Message) => {
     setSelectedMessage(message)
@@ -214,6 +240,24 @@ export default function Messages() {
         )}
       </motion.div>
 
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white border border-charcoal-200 rounded-lg p-4"
+      >
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-charcoal-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search messages by subject, content, sender, or recipient..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-charcoal-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500/50 focus:border-gold-500 transition-smooth"
+          />
+        </div>
+      </motion.div>
+
       <div className="flex gap-4 border-b border-charcoal-200">
         <button
           onClick={() => {
@@ -266,10 +310,12 @@ export default function Messages() {
           <div className="divide-y divide-charcoal-200 max-h-[600px] overflow-y-auto">
             {isLoading ? (
               <div className="p-8 text-center text-charcoal-500">Loading...</div>
-            ) : messages.length === 0 ? (
+            ) : filteredMessages.length === 0 && messages.length > 0 ? (
+              <div className="p-8 text-center text-charcoal-500">No messages found matching "{searchQuery}"</div>
+            ) : filteredMessages.length === 0 ? (
               <div className="p-8 text-center text-charcoal-500">No messages</div>
             ) : (
-              messages.map((message) => (
+              filteredMessages.map((message) => (
                 <motion.div
                   key={message.id}
                   initial={{ opacity: 0 }}

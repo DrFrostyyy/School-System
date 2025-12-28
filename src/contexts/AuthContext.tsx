@@ -11,6 +11,7 @@ interface User {
     department: string
     position: string
     phone?: string
+    profilePicture?: string
     status: string
   }
 }
@@ -20,6 +21,8 @@ interface AuthContextType {
   token: string | null
   login: (email: string, password: string) => Promise<void>
   logout: () => void
+  setUser: (user: User | null) => void
+  setToken: (token: string | null) => void
   isLoading: boolean
   isAuthenticated: boolean
 }
@@ -72,6 +75,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     apiClient.setToken(null)
   }
 
+  const setTokenValue = (newToken: string | null) => {
+    setToken(newToken)
+    if (newToken) {
+      localStorage.setItem('token', newToken)
+      apiClient.setToken(newToken)
+    } else {
+      localStorage.removeItem('token')
+      apiClient.setToken(null)
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -79,6 +93,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         login,
         logout,
+        setUser,
+        setToken: setTokenValue,
         isLoading,
         isAuthenticated: !!user && !!token,
       }}
