@@ -1,24 +1,24 @@
 # School Information System
 
-A full-stack school information system for Admin and Teacher users with a modern, elegant design.
+full-stack school info system for admin & teacher users. clean modern design.
 
-## Features
+## tech stack
 
-- **Authentication**: Login/logout with role-based access (Admin & Teacher)
-- **Teacher Directory**: Manage teacher profiles
-- **Announcements**: Create and share announcements with rich text, attachments, and links
-- **Documents**: Upload, organize, and share documents with folder support
-- **Messaging**: Internal messaging system with threading and replies
-- **Dashboards**: Role-specific dashboards with key metrics
+- frontend: react, typescript, vite, tailwind css, framer motion
+- backend: node.js, express, typescript, prisma, sqlite
 
-## Tech Stack
+## features
 
-**Frontend:** React, TypeScript, Vite, Tailwind CSS, Framer Motion  
-**Backend:** Node.js, Express, TypeScript, Prisma, SQLite
+- auth with role-based access (admin & teacher)
+- teacher directory management
+- announcements with rich text, attachments, links
+- document upload & organization with folders
+- internal messaging with threading
+- role-specific dashboards with metrics
 
-## Quick Start
+## quick setup
 
-### Backend
+### backend
 
 ```bash
 cd server
@@ -30,31 +30,32 @@ npm run prisma:seed
 npm run dev
 ```
 
-Backend runs on `http://localhost:3001`
+backend runs at `http://localhost:3001`
 
-### Frontend
+### frontend
 
 ```bash
 npm install
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`
+frontend runs at `http://localhost:5173`
 
-## Default Credentials
+## default credentials
 
-- **Admin**: `admin@school.edu` / `admin123`
-- **Teacher**: `teacher1@school.edu` / `teacher123`
+- admin: `admin@school.edu` / `admin123`
+- teacher: `teacher1@school.edu` / `teacher123`
 
-## Project Structure
+## project structure
 
 ```
 .
-├── server/          # Backend (Express + Prisma)
-├── src/            # Frontend (React + Vite)
+├── server/          # backend (express + prisma)
+├── src/            # frontend (react + vite)
 └── README.md
 ```
 
-## License
+## license
 
-Educational purposes only.
+educational purposes only.
+
